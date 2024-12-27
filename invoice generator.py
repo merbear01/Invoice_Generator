@@ -274,11 +274,9 @@ if __name__ == "__main__":
 # we also need a pyinstaller added
 
 
-# 1. Use Tkinter for the GUI.
 # 2. Save data locally (e.g., SQLite for storing invoices).
 # 3. Package the app as an executable using tools like PyInstaller. This eliminates the need for Python installation on their systems.
-# 4. Docker might not be necessary unless you want to ensure that all dependencies and runtime environments are pre-configured.
-
+# 4. Add a feature to view the list of invoices generated in the past.
 
 ## ALso why is it that at 100%, the invoice looks small ?
 ## Now how do I deploy a tkinter app as a web app or a standalone app.
