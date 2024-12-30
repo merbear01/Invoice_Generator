@@ -1,7 +1,9 @@
 import os
+import sqlite3
 from reportlab.pdfgen import canvas
 from reportlab.lib.pagesizes import A4
 from datetime import datetime
+from tkinter.ttk import Treeview
 from tkinter import  Tk, Frame, Entry, Label, Button, OptionMenu, StringVar, filedialog, messagebox, Scrollbar, Canvas
 
 
@@ -9,9 +11,14 @@ from tkinter import  Tk, Frame, Entry, Label, Button, OptionMenu, StringVar, fil
 class InvoiceGenerator:
    def __init__(self,root):
        self.root = root
-       self.root.title("Invoice Generator By Mercy")
+       self.root.title("Invoice Generator for Bongo International")
        self.root.geometry("750x1000")
        self.root.resizable(True, True)
+
+       # SQLite database setup
+       self.conn = sqlite3.connect("invoices.db")  # Create/connect to the database file
+       self.cursor = self.conn.cursor()
+       self.create_table()
 
        # Load last-used country or set default
        self.last_country_file = "last_country.txt"
@@ -97,13 +104,21 @@ class InvoiceGenerator:
        Button(self.scrollable_frame, text="Browse Files", command=self.browse, font=("times new roman", 15)).grid(
            row=10, column=1, padx=20, pady=10)
 
-       Button(self.scrollable_frame, text="Save Invoice", command=self.save_invoice, font=("times new roman", 15),
-              bg="#B00857", fg="white").grid(row=11, column=0, columnspan=2, pady=20)
+       # Place "Save Invoice" and "View Invoices" buttons in the same row
+       Button(self.scrollable_frame, text="Save Invoice", command=self.save_invoice,
+              font=("times new roman", 15), bg="#B00857", fg="white").grid(row=12, column=0, pady=20, padx=10,
+                                                                           sticky="e")
+
+       Button(self.scrollable_frame, text="View Prev. Invoices", command=self.view_invoices,
+              font=("times new roman", 15)).grid(row=12, column=1, pady=20, padx=10, sticky="w")
 
    # ==== Browse Function
    def browse(self):
        self.file_name = filedialog.askopenfilename(title="Select a File")
-       Label(self.scrollable_frame, text=os.path.basename(self.file_name), font=("times new roman", 15)).place(x=270, y=600)
+       if self.file_name:
+           # Display the file name to the right of the Browse Files button
+           Label(self.scrollable_frame, text=os.path.basename(self.file_name), font=("times new roman", 12),
+                 bg="white", fg="gray").grid(row=10, column=2, padx=10, pady=10, sticky="w")
 
    # ==== Save Invoice Function
    def save_invoice(self):
@@ -153,7 +168,31 @@ class InvoiceGenerator:
        save_path = filedialog.asksaveasfilename(defaultextension=".pdf",
                                                 filetypes=[("PDF files", "*.pdf"), ("All files", "*.*")])
        if save_path:  # If the user didn't cancel the dialog
+           self.file_path = save_path  # Assign save path to self.file_path
            self.generate_invoice(save_path)
+
+    # Save the invoice details to the database
+       self.cursor.execute("""
+               INSERT INTO invoices (
+                   invoice_number, company_name, address, city, country, gst_number,
+                   date, contact, customer_name, authorized_signatory, company_image, file_path
+               ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           """, (
+           self.get_timestamp_invoice_number(),
+           self.company_name.get(),
+           self.address.get(),
+           self.city.get(),
+           self.selected_country.get(),
+           self.gst.get(),
+           self.date.get(),
+           self.contact.get(),
+           self.c_name.get(),
+           self.aus.get(),
+           self.file_name if hasattr(self, 'file_name') else None,
+           self.file_path  # Replace with the actual file path of the generated PDF
+       ))
+       self.conn.commit()
+       messagebox.showinfo("Success", "Invoice saved to database and PDF generated!")
 
        # ==== Invoice Generation Function
 
@@ -252,6 +291,81 @@ class InvoiceGenerator:
                return f.read().strip()
        return "Netherlands"  # Default country
 
+   def create_table(self):
+       self.cursor.execute("""
+           CREATE TABLE IF NOT EXISTS invoices (
+               id INTEGER PRIMARY KEY AUTOINCREMENT,
+               invoice_number TEXT,
+               company_name TEXT,
+               address TEXT,
+               city TEXT,
+               country TEXT,
+               gst_number TEXT,
+               date TEXT,
+               contact TEXT,
+               customer_name TEXT,
+               authorized_signatory TEXT,
+               company_image TEXT,
+               file_path TEXT
+           )
+       """)
+       self.conn.commit()
+
+   def view_invoices(self):
+       # Create a new window for displaying invoices
+       invoice_window = Tk()
+       invoice_window.title("View Invoices")
+       invoice_window.geometry("800x600")
+
+       # Treeview for displaying the invoices
+       tree = Treeview(invoice_window, columns=("ID", "Invoice Number", "Company Name", "Customer Name", "Date"),
+                       show='headings')
+       tree.heading("ID", text="ID")
+       tree.heading("Invoice Number", text="Invoice Number")
+       tree.heading("Company Name", text="Company Name")
+       tree.heading("Customer Name", text="Customer Name")
+       tree.heading("Date", text="Date")
+
+       # Fetch and insert data into the treeview
+       self.cursor.execute("SELECT id, invoice_number, company_name, customer_name, date FROM invoices")
+       for row in self.cursor.fetchall():
+           tree.insert("", "end", values=row)
+
+       tree.pack(fill="both", expand=True)
+
+       # Delete selected invoice function
+       def delete_invoice():
+           selected_item = tree.selection()
+           if not selected_item:
+               messagebox.showwarning("No Selection", "Please select an invoice to delete.")
+               return
+
+           # Confirm deletion
+           confirm = messagebox.askyesno("Delete Confirmation", "Are you sure you want to delete this invoice?")
+           if not confirm:
+               return
+
+           # Get selected invoice ID
+           item = tree.item(selected_item)
+           invoice_id = item["values"][0]
+
+           # Delete from the database
+           try:
+               self.cursor.execute("DELETE FROM invoices WHERE id = ?", (invoice_id,))
+               self.conn.commit()
+
+               # Remove from the Treeview
+               tree.delete(selected_item)
+               messagebox.showinfo("Success", "Invoice deleted successfully!")
+           except Exception as e:
+               messagebox.showerror("Error", f"Failed to delete invoice: {e}")
+
+       # Add Delete Invoice button
+       delete_button = Button(invoice_window, text="Delete Selected Invoice", command=delete_invoice,
+                              font=("times new roman", 12), bg="red", fg="white")
+       delete_button.pack(pady=10)
+
+       invoice_window.mainloop()
        # ==== creating main function
 
 def main():
@@ -270,11 +384,9 @@ if __name__ == "__main__":
 
 
 # Now we need to add a sql backend to be able to track the invoices generated.
-# We can use sqlite3 for this.
 # we also need a pyinstaller added
 
 
-# 2. Save data locally (e.g., SQLite for storing invoices).
 # 3. Package the app as an executable using tools like PyInstaller. This eliminates the need for Python installation on their systems.
 # 4. Add a feature to view the list of invoices generated in the past.
 
