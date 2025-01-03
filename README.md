@@ -3,7 +3,7 @@
 This is a standalone application for generating invoices. You can download the pre-built `.exe` file or build it yourself using PyInstaller.
 
 ### Download
-Download the `.exe` file from the [Releases page]([https://github.com/your-repo/releases](https://github.com/merbear01/Invoice_Generator/releases/tag/v1.0.0)).
+Download the `.exe` file from the [Releases page](https://github.com/merbear01/Invoice_Generator/releases/tag/v1.0.0).
 
 ### Build Instructions
 1. Clone this repository:
