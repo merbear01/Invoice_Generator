@@ -382,7 +382,7 @@ if __name__ == "__main__":
 
 
 
-
+# logo will be added permanently
 # Now we need to add a sql backend to be able to track the invoices generated.
 # we also need a pyinstaller added
 
@@ -390,5 +390,5 @@ if __name__ == "__main__":
 # 3. Package the app as an executable using tools like PyInstaller. This eliminates the need for Python installation on their systems.
 # 4. Add a feature to view the list of invoices generated in the past.
 
-## ALso why is it that at 100%, the invoice looks small ?
+## Also why is it that at 100%, the invoice looks small ?
 ## Now how do I deploy a tkinter app as a web app or a standalone app.
